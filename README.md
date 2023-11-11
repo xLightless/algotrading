@@ -38,11 +38,6 @@ Installing 'algotrading' using git/bash
 | `userId` | `int` | **Required**. Your account ID. |
 | `password` | `string` | **Required**. Your emails password. |
 
-
-
-Takes two numbers and returns the sum.
-
-
 ## Authors
 
 Many thanks to the contributers and authors below:
