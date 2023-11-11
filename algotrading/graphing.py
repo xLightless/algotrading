@@ -13,7 +13,7 @@ class TradingViewPlotter:
         # Dark mode color scheme
         self.background_color = '#1e1e1e'
         self.grid_color = '#2f3640'
-        self.candlestick_colors = {'up': '#00ff00', 'down': '#ff0000'}
+        self.candlestick_colors = {'up': '#00ff00', 'down': '#F23645'}
 
         # Font settings
         self.title_font = dict(family='Arial', size=16, color='white')
@@ -37,7 +37,7 @@ class TradingViewPlotter:
 
         # Candlestick chart row height
         self.candlestick_row_height = 1
-        
+
         # Volume chart row height
         self.volume_row_height = 0.2
 
@@ -86,11 +86,22 @@ class TradingViewPlotter:
             showlegend=True,  # Display legend
             legend=dict(orientation='h', y=1.1, font=dict(color=self.legend_text_color))  # Position the legend above the chart
         )
-        
+
         if self.hovermode:
             fig.update_layout(hovermode='x unified')
-        
+
+        # Disable candlestick border
+        fig.update_traces(line=dict(width=0), selector=dict(type='candlestick'))
+
         return fig
+    
+    # def toggle_candlestick_border(self, _, fig, candlestick_trace):
+    #     # Toggle the candlestick border visibility
+    #     self.show_candlestick_border = not self.show_candlestick_border
+    #     fig.update_traces(
+    #         line=dict(width=1) if self.show_candlestick_border else dict(width=0),
+    #         selector=dict(type='candlestick')
+    #     )
 
 class IndicatorPlotter:
     def __init__(self, data: pd.DataFrame):

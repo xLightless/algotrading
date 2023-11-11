@@ -52,7 +52,8 @@ async def run_xtb_client(**credentials):
                     df = rsi.add_rsi_to_dataframe()
                     df.head(BACKTEST_CANDLES)
                     
-                    df.to_csv("datatest.csv")
+                    # df.to_csv("datatest.csv")
+                    # print(df)
                     
                     ## Get indicators and plot them.
                     rsi = rsi.get_rsi_traces()
