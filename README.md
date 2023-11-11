@@ -6,3 +6,49 @@ A 'simple' solution for integrating algorithmic and machine learning trading. Ev
 
 ![Logo](https://i.imgur.com/OTvXp3a.png)
 
+
+## Installation
+
+Installing 'algotrading' using git/bash
+
+```
+  git clone https://github.com/xLightless/algotrading.git
+  cd algotrading
+  pip install -r requirements.txt
+```
+    
+## API Reference http://developers.xstore.pro/documentation/2.5.0
+
+#### Login
+
+```http
+  POST /api/login
+
+{
+	"command": "login",
+	"arguments": {
+		"userId": "1000",
+		"password": "PASSWORD"
+	}
+}
+```
+
+| Parameter | Type     | Description                |
+| :-------- | :------- | :------------------------- |
+| `userId` | `int` | **Required**. Your account ID. |
+| `password` | `string` | **Required**. Your emails password. |
+
+
+
+Takes two numbers and returns the sum.
+
+
+## Authors
+
+Many thanks to the contributers and authors below:
+- [@xlightless](https://www.github.com/xlightless)
+
+
+## Acknowledgements
+
+ - [@pawelkin](https://github.com/pawelkn/xapi-python/tree/master)
