@@ -1,0 +1,2 @@
+XTB_ACCOUNT_ID:int = int("15344717")
+XTB_PASSWORD = "SixFiveSeven1"
