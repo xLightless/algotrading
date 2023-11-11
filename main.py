@@ -8,6 +8,7 @@ from algotrading.xtb.xapi.records import *
 from algotrading.xtb.client import Client
 from algotrading.constants import *
 from algotrading.indicators import *
+from algotrading.graphing import *
 from credentials import XTB_ACCOUNT_ID, XTB_PASSWORD
 
 # Short hand asyncio calls
@@ -31,7 +32,7 @@ async def run_xtb_client(**credentials):
                 if BACKTESTING == True:
                     
                     ## Request backtesting data if needed
-                    if GET_NEW_HISTORICAL_DATA == True:
+                    if BACKTEST_NEW_DATA == True:
                         historical_data = await client.get_last_request_data(
                             connector,
                             symbol=client.symbol,
@@ -46,16 +47,19 @@ async def run_xtb_client(**credentials):
                         client.write_backtest_ohlcv_data(historical_data)
                     
                     ## Get DataFrame
-                    # date_range = pd.date_range(start="2023-10-10", end="2023-11-10", freq='15T') ## freq is 15 minutes.
                     df = await client.get_backtest_ohlcv_data()
-                    # df = df.head(BACKTEST_CANDLES)
-                    # df = df.drop(columns={'Volume'})
-                    # df['Close Price'] = df.apply(lambda row: row['Open'] + max(0, row['Close']), axis=1)
-                    print(df)
-                    # rsi = RSIDivergence(df)
+                    rsi = RelativeStrengthIndex(data=df)
+                    df = rsi.add_rsi_to_dataframe()
+                    df.head(BACKTEST_CANDLES)
                     
-                    # rsi.add_rsi_divergence()
-                    # rsi.plot_rsi_divergence()
+                    df.to_csv("datatest.csv")
+                    
+                    ## Get indicators and plot them.
+                    rsi = rsi.get_rsi_traces()
+                    plotter = IndicatorPlotter(df)
+                    plotter.plot_indicator_chart(
+                        indicator_traces=[[i for i in rsi]]
+                    )
                     
                     
                     raise exceptions.ConnectionClosed

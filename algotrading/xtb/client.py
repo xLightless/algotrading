@@ -146,7 +146,7 @@ class Client:
     def write_backtest_ohlcv_data(self, historical_data):
         """Write OHLCV historical data to a comma seperated values file. """
 
-        if GET_NEW_HISTORICAL_DATA == True:
+        if BACKTEST_NEW_DATA == True:
             file_path = f"{os.getcwd()}\\algotrading\\backtest_data\\"
             file_name = "latest.csv"
             latest_file = self.__get_latest_file()
@@ -198,28 +198,31 @@ class Client:
         file = pd.read_csv(file_path+file_name)
         df = file
         df = df.rename(columns={
-            'open' : 'Open',
-            'high' : 'High',
-            'low' : 'Low',
-            'close' : 'Close',
-            'vol' : 'Volume'
+            'open' : 'open',
+            'high' : 'high',
+            'low' : 'low',
+            'close' : 'close',
+            'vol' : 'volume'
             })
         
         ## Pre-process the data before returning a dataframe.
-        df = df.drop(['ctm'], axis=1)
+        # df = df.drop(['ctm'], axis=1)
         df['ctmString'] = pd.to_datetime(df['ctmString'], format='%b %d, %Y, %I:%M:%S %p')
-        df['Date'] = df['ctmString'].dt.date
-        df['Date'] = pd.to_datetime(df['Date'])
-        df['Time'] = df['ctmString'].dt.time
-        df.drop(columns={'ctmString'}, inplace=True)
-        df.set_index('Date', inplace=True)
-        df.insert(0, 'Time', df.pop('Time'))
+        # df['date'] = df['ctmString'].dt.date
+        # df['date'] = pd.to_datetime(df['date'])
+        # df['time'] = df['ctmString'].dt.time
+        # df.drop(columns={'ctmString'}, inplace=True)
+        # df.set_index('Date', inplace=True)
+        # df.insert(0, 'date', df.pop('date'))
+        # df.insert(1, 'time', df.pop('time'))
+        # df.rename(columns={'ctm':'timestamp'}, inplace=True)
+        # df.set_index('timestamp', inplace=True)
         
         ## Calculate the actual prices for Open, High, Low, Close.
-        df['High'] = (df['Open'] + (df['High']))/1000
-        df['Low'] = (df['Open'] + (df['Low']))/1000
-        df['Close'] = (df['Open'] + (df['Close']))/1000
-        df['Open'] = (df['Open'])/1000
+        df['high'] = (df['open'] + (df['high']))/1000
+        df['low'] = (df['open'] + (df['low']))/1000
+        df['close'] = (df['open'] + (df['close']))/1000
+        df['open'] = (df['open'])/1000
         return df
     
     

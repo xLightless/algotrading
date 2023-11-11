@@ -9,8 +9,9 @@ TRADE_PERIOD = PeriodCode.PERIOD_M15
 
 ## Backtesting
 BACKTESTING = True
-GET_NEW_HISTORICAL_DATA = False
-BACKTEST_CANDLES = 30000
+BACKTEST_CANDLES = 2976 ## One month of 15 minutes
+BACKTEST_NEW_DATA = False
+PLOT_CANDLES = False
 
 
 # The maximum spread we will allow for entering trades.
