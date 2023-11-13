@@ -48,6 +48,7 @@ class TradingViewPlotter:
         self.hovermode = True
 
     def apply_tradingview_style(self, fig):
+
         # Apply dark mode background color
         fig.update_layout(
             plot_bgcolor=self.background_color,
@@ -90,26 +91,34 @@ class TradingViewPlotter:
         if self.hovermode:
             fig.update_layout(hovermode='x unified')
 
-        # Disable candlestick border
-        fig.update_traces(line=dict(width=0), selector=dict(type='candlestick'))
+        # Remove the border around the candlestick body
+        fig.update_traces(line=dict(width=1.5), selector=dict(type='candlestick'))
+        
+        
+        fig.update_layout(
+            xaxis=dict(
+                title_font=self.axis_font,
+                tickfont=self.axis_font,
+                rangeslider=dict(visible=self.rangeslider_visible),
+                showticklabels=False  # Hide X-axis tick labels
+            ),
+            yaxis=dict(
+                title_font=self.axis_font,
+                tickfont=self.axis_font,
+                showticklabels=True  # Hide Y-axis tick labels
+            ),
+        )
 
         return fig
-    
-    # def toggle_candlestick_border(self, _, fig, candlestick_trace):
-    #     # Toggle the candlestick border visibility
-    #     self.show_candlestick_border = not self.show_candlestick_border
-    #     fig.update_traces(
-    #         line=dict(width=1) if self.show_candlestick_border else dict(width=0),
-    #         selector=dict(type='candlestick')
-    #     )
 
 class IndicatorPlotter:
     def __init__(self, data: pd.DataFrame):
         self.df = data
-        
+
     def plot_indicator_chart(
         self,
-        indicator_traces: List[List[go.Scatter]] = [],  # List of lists for each indicator
+        indicator_traces: List[List[go.Scatter]] = [],
+        optional_indicators: List[List[go.Scatter]] = [],
         candlestick_data: Union[None, pd.DataFrame] = None,
         volume_data: Union[None, pd.DataFrame] = None,
         num_candles_buttons: List[int] = [50, 100, 200],
@@ -118,14 +127,13 @@ class IndicatorPlotter:
 
         # Create an instance of TradingViewPlotter with click and drag functionality disabled
         tradingview_style = TradingViewPlotter(df)
-        tradingview_style.enable_click_and_drag = False
 
         # Create subplots with dynamic number of rows based on the number of indicators and additional traces
         num_rows = len(indicator_traces) + 2  # 1 for candlestick, 1 for volume
         row_heights = [
-            tradingview_style.candlestick_row_height,
-            tradingview_style.volume_row_height,
-        ] + [tradingview_style.indicator_row_height] * len(indicator_traces)
+            0.2,  # Height for candlestick with wicks
+            0.2,  # Height for volume
+        ] + [0.2] * len(indicator_traces)  # Height for indicators
 
         # Ensure that the length of row_heights is 2 if there are no indicator traces
         row_heights += [0.2] * (2 - len(row_heights))
@@ -141,28 +149,109 @@ class IndicatorPlotter:
 
         # Candlestick chart (default to using df if not specified)
         candlestick_data = df if candlestick_data is None else candlestick_data
-        candlestick_trace = go.Candlestick(
-            x=candlestick_data['ctmString'],
-            open=candlestick_data['open'],
-            high=candlestick_data['high'],
-            low=candlestick_data['low'],
-            close=candlestick_data['close'],
-            name='Price Chart',  # Set the name for the candlestick chart
-        )
-        fig.add_trace(candlestick_trace, row=1, col=1)
+
+        # Forward-fill missing data in candlestick_data
+        candlestick_data = self.forward_fill_missing_data(df, candlestick_data, ['open', 'high', 'low', 'close'])
+
+        # Check if 'open', 'high', 'low', and 'close' columns exist
+        if all(col in candlestick_data.columns for col in ['open', 'high', 'low', 'close']):
+            candlestick_trace = go.Candlestick(
+                x=candlestick_data['ctmString'],
+                open=candlestick_data['open'],
+                high=candlestick_data['high'],
+                low=candlestick_data['low'],
+                close=candlestick_data['close'],
+                name='Candlestick Chart',  # Set the name for the candlestick chart
+            )
+
+            # Add the candlestick trace to the figure
+            fig.add_trace(candlestick_trace, row=1, col=1)
+        else:
+            raise KeyError("Columns 'open', 'high', 'low', 'close' not found in candlestick_data")
 
         # Apply TradingView style
         fig = tradingview_style.apply_tradingview_style(fig)
 
+        # Add optional indicators to the chart (on top of candlestick)
+        for i, optional_indicator_list in enumerate(optional_indicators, start=2):
+            for j, optional_indicator_trace in enumerate(optional_indicator_list, start=1):
+                # Trim the optional_indicator_trace if it's longer than the number of candles
+                if len(optional_indicator_trace.x) > len(candlestick_data):
+                    optional_indicator_trace.x = optional_indicator_trace.x[:len(candlestick_data)]
+                    optional_indicator_trace.y = optional_indicator_trace.y[:len(candlestick_data)]
+
+                fig.add_trace(optional_indicator_trace, row=1, col=1)
+
+                # Add label for the number of items in each optional indicator trace only for the first item in each list
+                if j == 1:
+                    label_text = f'Number of Items in {optional_indicator_trace.name}: {len(optional_indicator_trace.x)}'
+                    label_annotation = go.layout.Annotation(
+                        text=label_text,
+                        showarrow=False,
+                        xref='paper',
+                        yref='paper',
+                        x=0.5,
+                        y=1.05 - 0.1 * (i - 2),  # Adjust the vertical position of the label
+                        xanchor='center',
+                        yanchor='bottom',
+                        font=dict(size=14, color='white'),  # Set color to white
+                    )
+                    fig.add_annotation(label_annotation, row=1, col=1)
+
         # Add indicator traces to the chart
         for i, indicator_trace_list in enumerate(indicator_traces, start=2):
-            for indicator_trace in indicator_trace_list:
+            for j, indicator_trace in enumerate(indicator_trace_list, start=1):
+                # Trim the indicator_trace if it's longer than the number of candles
+                if len(indicator_trace.x) > len(candlestick_data):
+                    indicator_trace.x = indicator_trace.x[:len(candlestick_data)]
+                    indicator_trace.y = indicator_trace.y[:len(candlestick_data)]
+
                 fig.add_trace(indicator_trace, row=i, col=1)
+
+                # Add label for the number of items in each indicator trace only for the first item in each list
+                if j == 1:
+                    label_text = f'Number of Items in {indicator_trace.name}: {len(indicator_trace.x)}'
+                    label_annotation = go.layout.Annotation(
+                        text=label_text,
+                        showarrow=False,
+                        xref='paper',
+                        yref='paper',
+                        x=0.5,
+                        y=1.05 - 0.1 * (i - 2),  # Adjust the vertical position of the label
+                        xanchor='center',
+                        yanchor='bottom',
+                        font=dict(size=14, color='white'),  # Set color to white
+                    )
+                    fig.add_annotation(label_annotation, row=i, col=1)
 
         # Volume bars (default to using df if not specified). Plots at the end of num_rows since enumeration ends at indicator_traces-1.
         volume_data = df if volume_data is None else volume_data
-        volume_trace = go.Bar(x=volume_data['ctmString'], y=volume_data['volume'], marker_color='blue', name='Volume Chart')
-        fig.add_trace(volume_trace, row=num_rows, col=1)
+
+        # Forward-fill missing data in volume_data
+        volume_data = self.forward_fill_missing_data(df, volume_data, ['volume'])
+
+        # Check if 'volume' column exists
+        # if 'volume' in volume_data.columns:
+        #     volume_trace = go.Bar(x=volume_data['ctmString'], y=volume_data['volume'], marker_color='blue', name='Volume Chart')
+        #     fig.add_trace(volume_trace, row=num_rows, col=1)
+        #     # fig.add_trace(volume_trace, row=num_rows, col=1)
+        # else:
+        #     raise KeyError("Column 'volume' not found in volume_data")
+
+        # Add label for the number of candles above the candlestick chart
+        label_text = f'Number of Candles: {len(candlestick_data)}'
+        label_annotation = go.layout.Annotation(
+            text=label_text,
+            showarrow=False,
+            xref='paper',
+            yref='paper',
+            x=0.5,
+            y=1.05,
+            xanchor='center',
+            yanchor='bottom',
+            font=dict(size=14, color='white'),  # Adjust font size and color as needed
+        )
+        fig.add_annotation(label_annotation)
 
         # Add buttons for different numbers of candles with text color option
         buttons = [
@@ -170,98 +259,64 @@ class IndicatorPlotter:
             for num in num_candles_buttons
         ]
 
-        # Add click and drag functionality
-        if tradingview_style.enable_click_and_drag:
-            fig.update_layout(dragmode='pan')
-
         # Update layout margin
         fig.update_layout(margin=margin)
+
+        # Set up callback for the toggle button
+        fig.update_layout(updatemenus=[dict(type='buttons', showactive=False, buttons=buttons)])
+
+        # Define the rangebreaks to remove gaps in the candlestick chart
+        rangebreaks = [
+            dict(bounds=['sat', 'mon']),  # Exclude weekends
+        ]
+
+        # Apply rangebreaks to x-axis
+        fig.update_xaxes(
+            type='category',
+            rangebreaks=rangebreaks
+        )
 
         # Show the plot
         fig.show()
 
-        
-    # def calculate_close_diff(self, close_data):
-    #     close_diff = close_data.diff().shift(-1)  # Calculate the difference between the current close and the next close
-    #     close_diff_str = close_diff.apply(lambda x: f'Close Diff: {x:.2f}' if not pd.isnull(x) else '')  # Convert to string format
-    #     return close_diff_str
-        
-        
-        
+    def forward_fill_missing_data(self, df, data, column_names):
+        # Handle missing data by filling gaps with the next available row
+        merged_data = df.merge(data, on='ctmString', how='left', suffixes=('_df', '_data'))
 
-# EXAMPLE CODE FOR PLOTTING
+        # Forward-fill missing data
+        for col in column_names:
+            if f'{col}_data' in merged_data.columns:
+                merged_data[f'{col}_data'].ffill(inplace=True)
+                merged_data[col] = merged_data[f'{col}_data']
+                merged_data.drop(columns=[f'{col}_data'], inplace=True)
+            else:
+                raise KeyError(f"Column '{col}' not found in the merged data")
+
+        return merged_data
+
+
 # class IndicatorPlotter:
-#     def __init__(self, data: pd.DataFrame):
-#         self.df = data
-        
-#     def plot_indicator_chart(
-#         self,
-#         indicator_traces: List[go.Scatter] = [],
-#         candlestick_data: Union[None, pd.DataFrame] = None,
-#         volume_data: Union[None, pd.DataFrame] = None,
-#         num_candles_buttons: List[int] = [50, 100, 200],
-#     ):
-#         df = self.df
+#     def __init__(self, data):
+#         self.data = data
 
-#         # Create an instance of TradingViewPlotter with click and drag functionality disabled
-#         tradingview_style = TradingViewPlotter(df)
-#         tradingview_style.enable_click_and_drag = False
+#     def plot_indicator_chart(self):
+#         fig = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=['Candlestick Chart', 'Indicator'])
 
-#         # Create subplots with dynamic number of rows based on the number of indicators
-#         num_rows = len(indicator_traces) + 2  # 1 for candlestick, 1 for volume
-#         row_heights = [
-#             tradingview_style.candlestick_row_height,
-#             tradingview_style.volume_row_height,
-#         ] + [tradingview_style.indicator_row_height] * len(indicator_traces)
+#         df = self.data
+#         # Candlestick Chart
+#         candlestick = go.Candlestick(x=df.index,
+#                                      open=df['open'],
+#                                      high=df['high'],
+#                                      low=df['low'],
+#                                      close=df['close'],
+#                                      name='Candlesticks')
 
-#         # Ensure that the length of row_heights is 2 if there are no indicator traces
-#         row_heights += [0.2] * (2 - len(row_heights))
+#         fig.add_trace(candlestick, row=1, col=1)
 
-#         # Set margin to reduce space between charts
-#         margin = dict(l=10, r=10, t=30, b=10, pad=0)
+#         # You can add more indicators or customizations as needed
 
-#         # Create subplots with adjusted margin
-#         fig = make_subplots(
-#             rows=num_rows, cols=1, shared_xaxes=True, row_heights=row_heights,
-#             vertical_spacing=0.02, subplot_titles=[None] * num_rows, row_titles=[None] * num_rows
-#         )
-
-#         # Candlestick chart (default to using df if not specified)
-#         candlestick_data = df if candlestick_data is None else candlestick_data
-#         candlestick_trace = go.Candlestick(
-#             x=candlestick_data['ctmString'],
-#             open=candlestick_data['open'],
-#             high=candlestick_data['high'],
-#             low=candlestick_data['low'],
-#             close=candlestick_data['close'],
-#             name='Price Chart',  # Set the name for the candlestick chart
-#         )
-#         fig.add_trace(candlestick_trace, row=1, col=1)
-
-#         # Apply TradingView style
-#         fig = tradingview_style.apply_tradingview_style(fig)
-
-#         # Add indicator traces to the chart
-#         for i, indicator_trace in enumerate(indicator_traces, start=2):
-#             fig.add_trace(indicator_trace, row=i, col=1)
-
-#         # Volume bars (default to using df if not specified)
-#         volume_data = df if volume_data is None else volume_data
-#         volume_trace = go.Bar(x=volume_data['ctmString'], y=volume_data['volume'], marker_color='blue', name='Volume Chart')
-#         fig.add_trace(volume_trace, row=num_rows, col=1)
-
-#         # Add buttons for different number of candles with text color option
-#         buttons = [
-#             dict(label=f'{num} Candles', method='relayout', args=[{'xaxis.range': [df['ctmString'].iloc[max(0, -num)], df['ctmString'].iloc[-1]]}])
-#             for num in num_candles_buttons
-#         ]
-
-#         # Add click and drag functionality
-#         if tradingview_style.enable_click_and_drag:
-#             fig.update_layout(dragmode='pan')
-
-#         # Update layout margin
-#         fig.update_layout(margin=margin)
+#         # Update layout
+#         fig.update_layout(xaxis_rangeslider_visible=False, title='Candlestick Chart with Indicator')
 
 #         # Show the plot
 #         fig.show()
