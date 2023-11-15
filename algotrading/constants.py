@@ -8,16 +8,14 @@ TRADE_PERIOD = PeriodCode.PERIOD_M15
 
 
 ## Backtesting
-BACKTESTING = True
-BACKTEST_CANDLES = 2976 ## One month of 15 minutes
-# BACKTEST_CANDLES = 25 ## Arbitrary number
+BACKTESTING = False
+BACKTESTING_CANDLES = 25*3## 2976 One month of 15 minutes
 BACKTEST_NEW_DATA = False
 PLOT_CANDLES = True
 
 
 # The maximum spread we will allow for entering trades.
 MAX_ENTRY_SPREAD = 5
-
 
 ## Indicators
 TOGGLE_INDICATORS = True
@@ -35,5 +33,5 @@ EMA_M15_CHART_PERIOD3 = 50
 
 
 ## Log verbose information to console.
-VERBOSE = True
+VERBOSE = False
 PURGE_BACKTESTING_DATA = False

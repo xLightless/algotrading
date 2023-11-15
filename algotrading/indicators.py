@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pandas_ta as ta
 import json
+import random
 
 """
 Most of the information provided is from Investopedia and has all been factually corrected.
@@ -24,151 +25,15 @@ class Indicators():
     
     https://www.investopedia.com/articles/active-trading/041814/four-most-commonlyused-indicators-trend-trading.asp
     """
-
-# class RSIDivergence(Indicators):
-#     """Added an EMA RSI smoothing divergence indicator. """
-#     def __init__(self, data, period=14, overbought=70, oversold=30):
-#         self.data = data
-#         self.period = period
-#         self.overbought = overbought
-#         self.oversold = oversold
-        
-#     def calculate_rsi(self, data=None, column_name='close', period=14):
-        
-#         if data == None:
-#             data = self.data
-#         # Calculate RSI using the provided function
-#         df = data.copy()
-
-#         # Calculate price changes specific to the 'close' column
-#         df['price_change'] = df[column_name].diff()
     
-#         # Calculate gains and losses
-#         df['gain'] = df['price_change'].apply(lambda x: x if x > 0 else 0)
-#         df['loss'] = df['price_change'].apply(lambda x: -x if x < 0 else 0)
-
-#         # Calculate average gains and losses over the specified period
-#         avg_gain = df['gain'].rolling(window=period, min_periods=5).mean()
-#         avg_loss = df['loss'].rolling(window=period, min_periods=5).mean()
-
-#         # Calculate relative strength (RS)
-#         rs = avg_gain / avg_loss
-
-#         # Calculate RSI
-#         rsi = 100 - (100 / (1 + rs))
-
-#         return rsi
-
-#     def add_rsi_divergence(self):
-#         # Calculate RSI on the DataFrame
-#         self.data.ta.rsi(length=self.period, append=True)
-
-#         # Identify overbought and oversold conditions
-#         self.data['overbought'] = 0
-#         self.data['oversold'] = 0
-#         self.data.loc[self.data[f'RSI_{self.period}'] > self.overbought, 'overbought'] = 1
-#         self.data.loc[self.data[f'RSI_{self.period}'] < self.oversold, 'oversold'] = 1
-
-#         # Identify potential divergence
-#         self.data['price_high_divergence'] = 0
-#         self.data['price_low_divergence'] = 0
-
-#         # Look for divergence in overbought conditions
-#         self.data.loc[(self.data['close'].shift(1) > self.data['close']) & (self.data['RSI_14'].shift(1) <= self.overbought) & (self.data['RSI_14'] > self.overbought), 'price_high_divergence'] = 1
-
-#         # Look for divergence in oversold conditions
-#         self.data.loc[(self.data['close'].shift(1) < self.data['close']) & (self.data['RSI_14'].shift(1) >= self.oversold) & (self.data['RSI_14'] < self.oversold), 'price_low_divergence'] = 1
-        
-#         return self.data
-
-#     # def plot_rsi_divergence(self):
-#     #     # Create candlestick trace
-#     #     candlestick = go.Candlestick(x=self.data.index,
-#     #                                  open=self.data['open'],
-#     #                                  high=self.data['high'],
-#     #                                  low=self.data['low'],
-#     #                                  close=self.data['close'],
-#     #                                  name='Candlesticks')
-
-#     #     # Create RSI trace
-#     #     rsi_trace = go.Scatter(x=self.data.index, y=self.data[f'RSI_{self.period}'], mode='lines', name='RSI', yaxis='y2')
-
-#     #     # Create buy and sell signal traces
-#     #     signals_buy = self.data[self.data['price_low_divergence'] == 1]
-#     #     signals_sell = self.data[self.data['price_high_divergence'] == 1]
-
-#     #     buy_signal_trace = go.Scatter(x=signals_buy.index, y=signals_buy['low'], mode='markers', marker=dict(symbol='triangle-up', size=8, color='green'), name='Buy Signal', yaxis='y1')
-#     #     sell_signal_trace = go.Scatter(x=signals_sell.index, y=signals_sell['high'], mode='markers', marker=dict(symbol='triangle-down', size=8, color='red'), name='Sell Signal', yaxis='y1')
-
-#     #     # # Create layout
-#     #     layout = go.Layout(title='RSI Overbought and Oversold Divergence',
-#     #                        xaxis=dict(title='Date'),
-#     #                        yaxis=dict(title='Price', domain=[0.3, 0.25]),
-#     #                        yaxis2=dict(title='RSI', overlaying='y', side='right', showgrid=False, domain=[0,1]),
-#     #                        showlegend=True)
-#     #     # Create layout
-#     #     # layout = go.Layout(title='RSI Overbought and Oversold Divergence',
-#     #     #                    xaxis=dict(title='Date'),
-#     #     #                    yaxis=dict(title='Price', domain=[0.3, 0.25]),
-#     #     #                    showlegend=True)
-
-#     #     # Create figure
-#     #     fig = go.Figure(data=[candlestick, rsi_trace, buy_signal_trace, sell_signal_trace], layout=layout)
-#     #     # # fig = go.Figure(data=[candlestick], layout=layout)
-#     #     # # fig.update_layout()
-#     #     # # Show the plot
-#     #     # fig.show()
-        
-#     def plot_rsi_divergence(self):
-#         # Create candlestick trace
-#         candlestick = go.Candlestick(x=self.data.index,
-#                                      open=self.data['open'],
-#                                      high=self.data['high'],
-#                                      low=self.data['low'],
-#                                      close=self.data['close'],
-#                                      name='Candlesticks')
-
-#         # Create RSI trace
-#         rsi_trace = go.Scatter(x=self.data.index, y=self.data[f'RSI_{self.period}'], mode='lines', name='RSI', yaxis='y2')
-
-#         # Create layout for the first graph (Price and Time)
-#         layout_price_time = go.Layout(title='Price and Time',
-#                                       xaxis=dict(title='Date'),
-#                                       yaxis=dict(title='Price', domain=[0.3, 0.25]),
-#                                       showlegend=True)
-
-#         # Create figure for the first graph (Price and Time)
-#         fig_price_time = go.Figure(data=[candlestick], layout=layout_price_time)
-
-#         # Show the plot for the first graph (Price and Time)
-#         fig_price_time.show()
-
-#         # Create buy and sell signal traces
-#         signals_buy = self.data[self.data['price_low_divergence'] == 1]
-#         signals_sell = self.data[self.data['price_high_divergence'] == 1]
-
-#         buy_signal_trace = go.Scatter(x=signals_buy.index, y=signals_buy['low'], mode='markers', marker=dict(symbol='triangle-up', size=8, color='green'), name='Buy Signal', yaxis='y1')
-#         sell_signal_trace = go.Scatter(x=signals_sell.index, y=signals_sell['high'], mode='markers', marker=dict(symbol='triangle-down', size=8, color='red'), name='Sell Signal', yaxis='y1')
-
-#         # Create layout for the second graph (RSI)
-#         layout_rsi = go.Layout(title='RSI',
-#                                xaxis=dict(title='Date'),
-#                                yaxis=dict(title='RSI', overlaying='y', side='right', showgrid=False, domain=[0,1]),
-#                                showlegend=True)
-
-#         # Create figure for the second graph (RSI)
-#         fig_rsi = go.Figure(data=[rsi_trace, buy_signal_trace, sell_signal_trace], layout=layout_rsi)
-
-#         # Show the plot for the second graph (RSI)
-#         fig_rsi.show()
-
-
-class RelativeStrengthIndex:
+class RelativeStrengthIndex(Indicators):
     def __init__(self, data, column_name='close', periods=14, overbought=70, oversold=30):
         self.data = data.copy()  # Make a copy of the data
         self.column_name = column_name
         self.periods = periods
         self.overbought = overbought
+        self.extended_overbought = 80
+        self.extended_oversold = 20
         self.oversold = oversold
 
     def calculate_rsi(self):
@@ -181,10 +46,10 @@ class RelativeStrengthIndex:
         rsi = 100 - (100 / (1 + rs))
         return rsi
 
-    def add_rsi_to_dataframe(self):
+    def add_rsi_to_dataframe(self) -> pd.DataFrame:
         rsi_column_name = f'rsi_{self.periods}'
         self.data[rsi_column_name] = self.calculate_rsi()
-        return pd.DataFrame(self.data)
+        return self.data
 
     def get_overbought_oversold_lines(self):
         overbought_line = np.full_like(self.data[self.column_name], self.overbought)
@@ -205,16 +70,173 @@ class RelativeStrengthIndex:
             y=overbought_line,
             mode='lines',
             name='Overbought',
-            line=dict(color='red')
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+        
+        oversold_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=oversold_line,
+            mode='lines',
+            name='Oversold',
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+        
+        extended_overbought_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=np.full_like(self.data[self.column_name], self.extended_overbought),
+            mode='lines',
+            name='Extended Overbought',
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+        extended_oversold_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=np.full_like(self.data[self.column_name], self.extended_oversold),
+            mode='lines',
+            name='Extended Oversold',
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+        
+        return rsi_trace, overbought_trace, oversold_trace, extended_overbought_trace, extended_oversold_trace
+    
+    def get_rsi_trend_traces(self):
+        rsi_values = self.data[f'rsi_{self.periods}']
+        rsi_trace_colors = self.get_rsi_trend_trace_color()
+
+        rsi_traces = []
+
+        start_index = 0
+        current_color = rsi_trace_colors[0]
+
+        for i in range(1, min(len(rsi_values), len(rsi_trace_colors))):  # Use min to avoid going out of bounds
+            if rsi_trace_colors[i] != current_color:
+                rsi_trace = go.Scatter(
+                    x=self.data['ctmString'][start_index:i],
+                    y=rsi_values[start_index:i],
+                    mode='lines',
+                    name='RSI',
+                    line=dict(color=current_color, width=1.25),
+                    showlegend=False,
+                )
+                rsi_traces.append(rsi_trace)
+                start_index = i
+                current_color = rsi_trace_colors[i]
+
+        rsi_trace = go.Scatter(
+            x=self.data['ctmString'][start_index:],
+            y=rsi_values[start_index:],
+            mode='lines',
+            name='RSI',
+            line=dict(color=current_color, width=1.25),
+            showlegend=False,
+        )
+        rsi_traces.append(rsi_trace)
+
+        overbought_line, oversold_line = self.get_overbought_oversold_lines()
+        overbought_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=overbought_line,
+            mode='lines',
+            name='Overbought',
+            line=dict(color='#787B86', width=1.25, dash='dash'),
+            hoverinfo='none',
+            showlegend=False
         )
         oversold_trace = go.Scatter(
             x=self.data['ctmString'],
             y=oversold_line,
             mode='lines',
             name='Oversold',
-            line=dict(color='green')
+            line=dict(color='#787B86', width=1.25, dash='dash'),
+            hoverinfo='none',
+            showlegend=False
         )
-        return rsi_trace, overbought_trace, oversold_trace
+
+        extended_overbought_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=np.full_like(self.data[self.column_name], self.extended_overbought),
+            mode='lines',
+            name='Extended Overbought',
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+        extended_oversold_trace = go.Scatter(
+            x=self.data['ctmString'],
+            y=np.full_like(self.data[self.column_name], self.extended_oversold),
+            mode='lines',
+            name='Extended Oversold',
+            line=dict(color='#787B86', width=1.25, dash='dot'),
+            hoverinfo='none',
+            showlegend=False
+        )
+
+        return rsi_traces + [overbought_trace, oversold_trace, extended_overbought_trace, extended_oversold_trace]
+
+    def get_rsi_trend_trace_color(self):
+        rsi_values = self.data[f'rsi_{self.periods}']
+        colors = []
+
+        trend_color = 'orange'  # Default color
+        for rsi in rsi_values:
+            if rsi > 70:
+                trend_color = 'red'  # Bullish trend
+            elif rsi < 30:
+                trend_color = 'green'  # Bearish trend
+
+            colors.append(trend_color)
+
+        return colors
+    
+    def calculate_rsi_trendline_breaks(self):
+        rsi_values = self.data[f'rsi_{self.periods}']
+        trendline_breaks = self._calculate_rsi_trendline_breaks(rsi_values, len(rsi_values))
+        return trendline_breaks
+
+    # def _calculate_rsi_trendline_breaks(self, rsi_values):
+    #     # Calculate RSI
+    #     delta = np.diff(rsi_values)
+    #     gain = np.where(delta > 0, delta, 0)
+    #     loss = -np.where(delta < 0, delta, 0)
+    #     avg_gain = np.convolve(gain, np.ones(self.periods) / self.periods, mode='valid')
+    #     avg_loss = np.convolve(loss, np.ones(self.periods) / self.periods, mode='valid')
+    #     rs = avg_gain / avg_loss
+    #     rsi = 100 - (100 / (1 + rs))
+
+    #     # Calculate RSI trendline
+    #     trendline_period = 5  # You can adjust this if needed
+    #     rsi_trendline = np.convolve(rsi, np.ones(trendline_period) / trendline_period, mode='same')
+
+    #     # Identify RSI trendline breaks
+    #     trendline_breaks = np.where(rsi > rsi_trendline, 1, np.where(rsi < rsi_trendline, -1, 0))
+
+    #     return trendline_breaks
+    
+    def _calculate_rsi_trendline_breaks(self, rsi_values):
+        # Calculate RSI
+        delta = np.diff(rsi_values)
+        gain = np.where(delta > 0, delta, 0)
+        loss = -np.where(delta < 0, delta, 0)
+        avg_gain = np.convolve(gain, np.ones(self.periods) / self.periods, mode='valid')
+        avg_loss = np.convolve(loss, np.ones(self.periods) / self.periods, mode='valid')
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+
+        # Calculate RSI trendline
+        trendline_period = 5  # You can adjust this if needed
+        rsi_trendline = np.convolve(rsi, np.ones(trendline_period) / trendline_period, mode='same')
+
+        # Identify RSI trendline breaks
+        trendline_breaks = np.where(rsi > rsi_trendline, 1, np.where(rsi < rsi_trendline, -1, 0))
+
+        return trendline_breaks
         
 class MACD(Indicators):
     """
@@ -248,6 +270,58 @@ class SimpleMovingAverage(_MovingAverage):
     https://www.investopedia.com/terms/s/sma.asp
     """
     
+    def __init__(self, data, window_size = random.randint(5, 20)):
+        self.data = data
+        self.window_size = window_size
+
+    def calculate_sma(self):
+        """
+        Calculate the Simple Moving Average (SMA) for the given dataset.
+        """
+        if not isinstance(self.data, pd.Series):
+            if isinstance(self.data, pd.DataFrame):
+                if self.data.shape[1] == 1:
+                    # If there's only one column, use that column for the SMA calculation
+                    self.data = self.data.squeeze()
+                else:
+                    # If there are multiple columns, assume the first numeric column for the SMA calculation
+                    numeric_columns = self.data.select_dtypes(include='number')
+                    if not numeric_columns.empty:
+                        self.data = numeric_columns.iloc[:, 0]
+                    else:
+                        raise ValueError("No numeric columns found in the DataFrame for SMA calculation.")
+            else:
+                self.data = pd.Series(self.data)
+
+        # Calculate the moving average using the rolling function
+        sma = self.data.rolling(window=self.window_size).mean()
+
+        return sma
+
+    def get_sma_traces(self):
+        """
+        Create traces for plotting SMA using Plotly.
+        """
+        sma = self.calculate_sma()
+
+        trace_data = go.Scatter(
+            x=self.data.index,
+            y=self.data,
+            mode='lines',
+            name='Original Data',
+            line=dict(color='blue')
+        )
+
+        trace_sma = go.Scatter(
+            x=sma.index,
+            y=sma,
+            mode='lines',
+            name=f'SMA ({self.window_size} periods)',
+            line=dict(color='orange')
+        )
+
+        return trace_data, trace_sma
+    
 
 class WeightedMovingAverage(_MovingAverage):
     """
@@ -271,5 +345,73 @@ class ExponentialMovingAverage(_MovingAverage):
     
     
     
-class BreakoutAndBreakdown(Indicators):
-    """"""
+class BreakingTrendIndicator:
+    def __init__(self, data):
+        """
+        Initialize the BreakingTrendIndicator with a DataFrame.
+
+        Parameters:
+        - data (pd.DataFrame): DataFrame containing price data.
+        """
+        self.df = data
+        self.buy_signals = None
+        self.sell_signals = None
+        self.breakout_threshold = 1.02
+        self.breakdown_threshold = 0.98
+        
+    def add_signals_to_dataframe(self):
+        """
+        Calculate potential buy and sell signals based on percentage change.
+        """
+        # Ensure 'close' column is numeric
+        self.df['close'] = pd.to_numeric(self.df['close'], errors='coerce')
+
+        # Set percentage change threshold values (adjust as needed)
+        percent_change_threshold = 0.01  # 0.5% change
+
+        # Calculate percentage change in 'close' column
+        percent_change = self.df['close'].pct_change() * 100
+        self.df['signal change'] = percent_change
+        
+        # Calculate buy and sell signals based on percentage change
+        buy_signals = percent_change > percent_change_threshold
+        sell_signals = percent_change < -percent_change_threshold
+
+        # Add signals to the DataFrame
+        self.df["buy_signal"] = buy_signals
+        self.df["sell_signal"] = sell_signals
+        return self.df
+
+    def get_breaking_traces(self):
+        """
+        Get Plotly traces for potential buy and sell signals.
+
+        Returns:
+        - list: List of Plotly traces.
+        """
+        buy_trace = go.Scatter(
+            x=self.df.index[self.df["buy_signal"]],
+            y=self.df['close'][self.df["buy_signal"]],
+            mode='markers',
+            marker=dict(color='green', size=8, symbol='triangle-up'),
+            name='Buy Signal'
+        )
+
+        sell_trace = go.Scatter(
+            x=self.df.index[self.df["sell_signal"]],
+            y=self.df['close'][self.df["sell_signal"]],
+            mode='markers',
+            marker=dict(color='red', size=8, symbol='triangle-down'),
+            name='Sell Signal'
+        )
+
+        # Filter out points where signals are False
+        buy_indices = np.where(~np.isnan(buy_trace['y']))[0]
+        buy_trace['x'] = buy_trace['x'][buy_indices]
+        buy_trace['y'] = buy_trace['y'][buy_indices]
+
+        sell_indices = np.where(~np.isnan(sell_trace['y']))[0]
+        sell_trace['x'] = sell_trace['x'][sell_indices]
+        sell_trace['y'] = sell_trace['y'][sell_indices]
+
+        return buy_trace, sell_trace

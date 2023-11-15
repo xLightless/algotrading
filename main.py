@@ -23,69 +23,77 @@ client = Client(
     symbol="GBPJPY"
 )
 
+async def message_handler(queue):
+    while True:
+        message = await queue.get()
+        if message is None:
+            break
+        client.logger.info(message)
+
 async def run_xtb_client(**credentials):
     """Run the xtb websocket client. """
     
+    async def handle_backtesting(connector):
+        if (BACKTESTING == True) and (BACKTEST_NEW_DATA == True):
+            historical_data = await client.get_last_request_data(
+                connector,
+                symbol=client.symbol,
+                period=TRADE_PERIOD,
+                multiplier=1,
+                timeframe='YEARS'
+            )
+            client.write_backtest_ohlcv_data(historical_data)
+            
+        elif (BACKTESTING == True) and (BACKTEST_NEW_DATA == False):
+            df = await client.get_backtest_ohlcv_data()
+            trendline_break = BreakingTrendIndicator(df)
+            df = trendline_break.add_signals_to_dataframe()
+            df = df.head(BACKTESTING_CANDLES)
+            print(df)
+            df.to_csv("asd.csv")
+            breakout, breakdown = trendline_break.get_breaking_traces()
+
+            plotter = IndicatorPlotter(df)
+            if PLOT_CANDLES == True:
+                plotter.plot_indicator_chart(indicator_traces=[[breakout, breakdown]])
+        
     while not client.disconnected:
         try:
             async with await xapi.connect(**credentials) as connector:
                 if BACKTESTING == True:
-                    
-                    ## Request backtesting data if needed
-                    if BACKTEST_NEW_DATA == True:
-                        historical_data = await client.get_last_request_data(
-                            connector,
-                            symbol=client.symbol,
-                            period=TRADE_PERIOD,
-                            multiplier=1,
-                            timeframe='YEARS'
-                        )
-                        
-                        # print(historical_data)
-                    
-                        # Write new data locally if enabled
-                        client.write_backtest_ohlcv_data(historical_data)
-                    
-                    ## Get DataFrame
-                    df = await client.get_backtest_ohlcv_data()
-                    rsi = RelativeStrengthIndex(data=df)
-                    df = rsi.add_rsi_to_dataframe()
-                    df.head(BACKTEST_CANDLES)
-                    
-                    # df.to_csv("datatest.csv")
-                    # print(df)
-                    
-                    ## Get indicators and plot them.
-                    rsi = rsi.get_rsi_traces()
-                    plotter = IndicatorPlotter(df)
-                    plotter.plot_indicator_chart(
-                        indicator_traces=[[i for i in rsi]]
-                    )
-                    
-                    
+                    await handle_backtesting(connector)
                     raise exceptions.ConnectionClosed
 
-                ## If backtesting is false then must be using the api in real time.
                 is_market_open = await client.is_market_open(connector, client.symbol)
                 if is_market_open:
-                    print(is_market_open)
                     
-                    
-                # await client.get_candles(connector, client.symbol)
-                
-                
-                # async for message in connector.stream.listen():
-                #     client.logger.info(message)
-            
-            
-            
+                    # Create an asyncio queue
+                    message_queue = asyncio.Queue()
+
+                    # Start the message handler coroutine
+                    handler_task = asyncio.create_task(message_handler(message_queue))
+
+                    # Start streaming candles
+                    await connector.stream.getCandles(client.symbol)
+
+                    # Asynchronously handle incoming messages
+                    async for message in connector.stream.listen():
+                        # Enqueue the message for processing
+                        await message_queue.put(message)
+
+                    # Signal the message handler to finish
+                    await message_queue.put(None)
+                    await handler_task
+
+                # Other async tasks can be added here
+
         except asyncio.TimeoutError:
             if client.disconnected:
                 await connector.disconnect()
                 raise exceptions.ConnectionClosed
             else:
                 client.logger.info("Connection lost: timed out. Reconnecting...")
-                asyncio.sleep(0.2)
+                await asyncio.sleep(0.2)
                 continue
         except exceptions.ConnectionClosed:
             await connector.disconnect()
