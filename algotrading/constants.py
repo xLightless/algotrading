@@ -8,9 +8,9 @@ TRADE_PERIOD = PeriodCode.PERIOD_M15
 
 
 ## Backtesting
-BACKTESTING = False
-BACKTESTING_CANDLES = 25*3## 2976 One month of 15 minutes
-BACKTEST_NEW_DATA = False
+BACKTESTING = True
+BACKTESTING_CANDLES = 2976## 2976 One month of 15 minutes
+BACKTEST_NEW_DATA = False # Preferably one minute data that we can make copies off for specific timeframes.
 PLOT_CANDLES = True
 
 

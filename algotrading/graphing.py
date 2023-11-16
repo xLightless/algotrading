@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import datetime
 
+from plotly.subplots import make_subplots
 from typing import List, Union
 from algotrading.indicators import *
 
@@ -87,19 +88,19 @@ class IndicatorPlotter:
 
     def plot_indicator_chart(
         self,
-        indicator_traces: List[List[go.Scatter]] = [],
-        optional_indicators: List[List[go.Scatter]] = [],
+        row2_indicator_traces: List[List[go.Scatter]] = [],
         candlestick_data: Union[None, pd.DataFrame] = None,
         volume_data: Union[None, pd.DataFrame] = None,
-        num_candles_buttons: List[int] = [50, 100, 200],
+        candle_stick_height: float = 1.0,
+        candle_stick_row: float = 0.2
     ):
         df = self.df
         tradingview_style = TradingViewPlotter(df)
-        num_rows = len(indicator_traces) + 2
+        num_rows = len(row2_indicator_traces) + 2
         row_heights = [
-            0.2,
-            0.2,
-        ] + [0.2] * len(indicator_traces)
+            candle_stick_height,
+            candle_stick_row,
+        ] + [0.2] * len(row2_indicator_traces)
         row_heights += [0.2] * (2 - len(row_heights))
         margin = dict(l=10, r=10, t=30, b=10, pad=0)
         fig = make_subplots(
@@ -108,8 +109,11 @@ class IndicatorPlotter:
         )
         candlestick_data = df if candlestick_data is None else candlestick_data
         candlestick_data = self.forward_fill_missing_data(df, candlestick_data, ['open', 'high', 'low', 'close'])
-        breaking_traces = BreakingTrendIndicator(df)
-        breaking_traces = breaking_traces.get_breaking_traces()
+
+        breaking_traces_instance = BreakingTrendIndicator(candlestick_data)
+        breaking_traces_instance.add_signals_to_dataframe()
+        breaking_traces = breaking_traces_instance.get_breaking_traces()
+
         if all(col in candlestick_data.columns for col in ['open', 'high', 'low', 'close']):
             candlestick_trace = go.Candlestick(
                 x=candlestick_data['ctmString'],
@@ -120,33 +124,14 @@ class IndicatorPlotter:
                 name='Candlestick Chart',
             )
             fig.add_trace(candlestick_trace, row=1, col=1)
+            for trace in breaking_traces:
+                fig.add_trace(trace, row=1, col=1)
         else:
             raise KeyError("Columns 'open', 'high', 'low', 'close' not found in candlestick_data")
+
         fig = tradingview_style.apply_tradingview_style(fig)
-        
-        for i, optional_indicator_list in enumerate(optional_indicators, start=2):
-            for j, optional_indicator_trace in enumerate(optional_indicator_list, start=1):
-                if len(optional_indicator_trace.x) > len(candlestick_data):
-                    optional_indicator_trace.x = optional_indicator_trace.x[:len(candlestick_data)]
-                    optional_indicator_trace.y = optional_indicator_trace.y[:len(candlestick_data)]
-                fig.add_trace(optional_indicator_trace, row=1, col=1)
-                if j == 1:
-                    label_text = f'Number of Items in {optional_indicator_trace.name}: {len(optional_indicator_trace.x)}'
-                    label_annotation = go.layout.Annotation(
-                        text=label_text,
-                        showarrow=False,
-                        xref='paper',
-                        yref='paper',
-                        x=0.5,
-                        y=1.05 - 0.1 * (i - 2),
-                        xanchor='center',
-                        yanchor='bottom',
-                        font=dict(size=14, color='white'),
-                    )
-                    fig.add_annotation(label_annotation, row=1, col=1)
-            
-            
-        for i, indicator_trace_list in enumerate(indicator_traces, start=2):
+
+        for i, indicator_trace_list in enumerate(row2_indicator_traces, start=2):
             for j, indicator_trace in enumerate(indicator_trace_list, start=1):
                 if not isinstance(indicator_trace, int):
                     if hasattr(indicator_trace, 'x') and hasattr(indicator_trace, 'y'):
@@ -176,6 +161,7 @@ class IndicatorPlotter:
             showlegend=True,
             legend=dict(orientation='h', y=1.1, font=dict(color='white'))
         )
+
         volume_data = df if volume_data is None else volume_data
         volume_data = self.forward_fill_missing_data(df, volume_data, ['volume'])
         if 'volume' in volume_data.columns:
@@ -184,6 +170,7 @@ class IndicatorPlotter:
             fig.update_xaxes(showticklabels=False, row=num_rows, col=1)
         else:
             raise KeyError("Column 'volume' not found in volume_data")
+
         label_text = f'Number of Candles: {len(candlestick_data)}'
         label_annotation = go.layout.Annotation(
             text=label_text,
@@ -197,12 +184,8 @@ class IndicatorPlotter:
             font=dict(size=14, color='white'),
         )
         fig.add_annotation(label_annotation)
-        buttons = [
-            dict(label=f'{num} Candles', method='relayout', args=[{'xaxis.range': [df['ctmString'].iloc[max(0, -num)], df['ctmString'].iloc[-1]]}])
-            for num in num_candles_buttons
-        ]
+
         fig.update_layout(margin=margin)
-        fig.update_layout(updatemenus=[dict(type='buttons', showactive=False, buttons=buttons)])
         rangebreaks = [
             dict(bounds=['sat', 'mon']),
         ]
@@ -211,8 +194,9 @@ class IndicatorPlotter:
             rangebreaks=rangebreaks
         )
         fig.show()
-
+    
     def forward_fill_missing_data(self, df, data, column_names):
+        df = self.df if df is None else df
         merged_data = df.merge(data, on='ctmString', how='left', suffixes=('_df', '_data'))
         for col in column_names:
             if f'{col}_data' in merged_data.columns:

@@ -115,7 +115,7 @@ class Client:
         try:
             return [RateInfoRecord(**info) for info in data.get('rateInfos')] 
         except AttributeError:
-            self.logger.info("The params parsed cannot return the data you asked for. Try changing the period, multiplier or timeframe.") 
+            self.logger.info("The params parsed cannot return the data you asked for. Try changing the period, multiplier or timeframe.")
     
     
     def __get_latest_file(self, path:str = None):
@@ -158,9 +158,11 @@ class Client:
                     ## Update old 'latest.csv' file to creation date.
                     latest_file_time = datetime.datetime.fromtimestamp(latest_file_time).strftime("%d.%m.%Y - %H.%M.%S")
                     new_file_name = f"{self.symbol} {PeriodCode(TRADE_PERIOD).name} {latest_file_time}.csv"
+                    
+                    ## Rename the previous 'latest.csv' to a timestamp file
                     os.rename(file_path+latest_file_name, file_path+new_file_name)
 
-                    ## Write new data to latest.csv file
+                    ## Get a dataframe to write info a new 'latest.csv' file
                     try:
                         df = pd.DataFrame(historical_data)
                         df = df[['ctmString', 'ctm', 'open', 'high', 'low', 'close', 'vol']]
@@ -171,7 +173,7 @@ class Client:
                 ## If latest_file_name is not file_name or no latest.csv found then make the latest the file.
                 if latest_file_name != file_name:
                     if not os.path.isfile(file_path+file_name):
-                        ## If no file exists then create an empty instance of latest.csv.
+                        ## If no file exists then create an empty instance of latest.csv
                         try:
                             df = pd.DataFrame(historical_data)
                             df = df[['ctmString', 'ctm', 'open', 'high', 'low', 'close', 'vol']]
@@ -179,10 +181,14 @@ class Client:
                         except KeyError:
                             return
                             
-                try:
-                    os.rename(file_path+latest_file_name, file_path+file_name)
-                except TypeError:
-                    return
+                # try:
+                #     # os.rename(file_path+latest_file_name, file_path+file_name)
+                #     if os.path.exists(file_path+file_name):
+                #         raise FileExistsError
+                # except TypeError:
+                #     return
+                # except FileExistsError:
+                #     pass
             else:
                 ## Unlikely to throw due to pre-determined checks but if it does, no file writing can be invoked because backtesting is false.
                 self.logger.info(f"You cannot write historical data to a file because BACKTESTING is set to {BACKTESTING}.")

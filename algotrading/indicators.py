@@ -346,7 +346,9 @@ class ExponentialMovingAverage(_MovingAverage):
     
     
 class BreakingTrendIndicator:
-    def __init__(self, data):
+    TREND_BREAK_THRESHOLD = 0.10 # 0.05 percent is default.
+    
+    def __init__(self, data, enable_trendline=False, smoothing=True):
         """
         Initialize the BreakingTrendIndicator with a DataFrame.
 
@@ -354,11 +356,9 @@ class BreakingTrendIndicator:
         - data (pd.DataFrame): DataFrame containing price data.
         """
         self.df = data
-        self.buy_signals = None
-        self.sell_signals = None
-        self.breakout_threshold = 1.02
-        self.breakdown_threshold = 0.98
-        
+        self.enable_trendline = enable_trendline
+        self.smoothing = smoothing
+
     def add_signals_to_dataframe(self):
         """
         Calculate potential buy and sell signals based on percentage change.
@@ -367,7 +367,7 @@ class BreakingTrendIndicator:
         self.df['close'] = pd.to_numeric(self.df['close'], errors='coerce')
 
         # Set percentage change threshold values (adjust as needed)
-        percent_change_threshold = 0.01  # 0.5% change
+        percent_change_threshold = self.TREND_BREAK_THRESHOLD
 
         # Calculate percentage change in 'close' column
         percent_change = self.df['close'].pct_change() * 100
@@ -380,38 +380,202 @@ class BreakingTrendIndicator:
         # Add signals to the DataFrame
         self.df["buy_signal"] = buy_signals
         self.df["sell_signal"] = sell_signals
-        return self.df
+        return self.df    
+    
+    # def add_signals_to_dataframe(self):
+    #     # Ensure 'close' column is numeric
+    #     self.df['close'] = pd.to_numeric(self.df['close'], errors='coerce')
 
-    def get_breaking_traces(self):
-        """
-        Get Plotly traces for potential buy and sell signals.
+    #     # Calculate percentage change in 'close' column
+    #     percent_change = self.df['close'].pct_change() * 100
+    #     self.df['signal_change'] = percent_change
 
-        Returns:
-        - list: List of Plotly traces.
-        """
+    #     # Calculate buy and sell signals based on percentage change
+    #     buy_signals = percent_change > self.TREND_BREAK_THRESHOLD
+    #     sell_signals = percent_change < -self.TREND_BREAK_THRESHOLD
+
+    #     # Filter buy signals to include only the newest highest high
+    #     newest_highest_high = self.df['high'].idxmax()
+    #     buy_signals = buy_signals & (self.df.index == newest_highest_high)
+
+    #     # Filter sell signals to include only the newest lowest low
+    #     newest_lowest_low = self.df['low'].idxmin()
+    #     sell_signals = sell_signals & (self.df.index == newest_lowest_low)
+
+    #     # Add signals to the DataFrame
+    #     self.df["buy_signal"] = buy_signals
+    #     self.df["sell_signal"] = sell_signals
+
+    #     return self.df
+    
+    def get_breaking_traces(self, candlestick_data=None):
+        candlestick_data = self.df if candlestick_data is None else candlestick_data
+
+        buy_signals = self.df[self.df["buy_signal"]]
+        sell_signals = self.df[self.df["sell_signal"]]
+
+        y_position = 0.2
+
         buy_trace = go.Scatter(
-            x=self.df.index[self.df["buy_signal"]],
-            y=self.df['close'][self.df["buy_signal"]],
+            x=candlestick_data['ctmString'][buy_signals.index],
+            y=candlestick_data['low'][buy_signals.index] - y_position,
             mode='markers',
-            marker=dict(color='green', size=8, symbol='triangle-up'),
-            name='Buy Signal'
+            marker=dict(color='green', size=12, symbol='triangle-up'),
+            name='Buy Signal',
+            hoverinfo='text',
+            text='*** BUY ***'
         )
 
         sell_trace = go.Scatter(
-            x=self.df.index[self.df["sell_signal"]],
-            y=self.df['close'][self.df["sell_signal"]],
+            x=candlestick_data['ctmString'][sell_signals.index],
+            y=candlestick_data['high'][sell_signals.index] + y_position,
             mode='markers',
-            marker=dict(color='red', size=8, symbol='triangle-down'),
-            name='Sell Signal'
+            marker=dict(color='red', size=12, symbol='triangle-down'),
+            name='Sell Signal',
+            hoverinfo='text',
+            text='*** SELL *** '
         )
 
-        # Filter out points where signals are False
-        buy_indices = np.where(~np.isnan(buy_trace['y']))[0]
-        buy_trace['x'] = buy_trace['x'][buy_indices]
-        buy_trace['y'] = buy_trace['y'][buy_indices]
+        if self.enable_trendline == True:
+            # Initialize line traces with empty lists
+            consecutive_buy_line_trace = []
+            consecutive_sell_line_trace = []
 
-        sell_indices = np.where(~np.isnan(sell_trace['y']))[0]
-        sell_trace['x'] = sell_trace['x'][sell_indices]
-        sell_trace['y'] = sell_trace['y'][sell_indices]
+            # Identify consecutive buy signals and create a line trace
+            consecutive_buy_indices = self.create_signal_trendline(self.df['buy_signal'], 'buy', 3)
+            if consecutive_buy_indices:
+                consecutive_buy_line_trace = [go.Scatter(
+                    x=candlestick_data['ctmString'][consecutive_buy_indices],
+                    y=candlestick_data['low'][consecutive_buy_indices] - y_position,
+                    mode='lines',
+                    line=dict(color='green', width=2),
+                    name='Consecutive Buy Line',
+                    hoverinfo='text',
+                    text='*** Consecutive Buy Line ***'
+                )]
 
+            # Identify consecutive sell signals and create a line trace
+            consecutive_sell_indices = self.create_signal_trendline(self.df['sell_signal'], 'sell', 3)
+            if consecutive_sell_indices:
+                consecutive_sell_line_trace = [go.Scatter(
+                    x=candlestick_data['ctmString'][consecutive_sell_indices],
+                    y=candlestick_data['high'][consecutive_sell_indices] + y_position,
+                    mode='lines',
+                    line=dict(color='red', width=2),
+                    name='Consecutive Sell Line',
+                    hoverinfo='text',
+                    text='*** Consecutive Sell Line ***'
+                )]
+
+            # Concatenate all traces into a single list
+            all_traces = [buy_trace, sell_trace] + consecutive_buy_line_trace + consecutive_sell_line_trace
+
+            return all_traces
+    
         return buy_trace, sell_trace
+
+
+    
+    def create_signal_trendline(self, signal_data, signal_type, connect_count):
+        connected_indices = []
+        trend_in_progress = False
+        current_trend_type = None
+
+        signal_indices = signal_data[signal_data].index
+
+        for i, start_index in enumerate(signal_indices):
+            end_index = start_index + connect_count - 1
+            if end_index in signal_indices[i:]:
+                consecutive_sequence = signal_indices[i:i + connect_count]
+
+                # Check if all consecutive signals are of the same type
+                if all(self.df[signal_type + '_signal'].iloc[x] for x in consecutive_sequence):
+                    # If a trend is not in progress, start a new one
+                    if not trend_in_progress or current_trend_type != signal_type:
+                        connected_indices.append(start_index)
+                        trend_in_progress = True
+                        current_trend_type = signal_type
+                    # Update the start_index to the last index of the consecutive sequence
+                    start_index = consecutive_sequence[-1]
+                    connected_indices.append(start_index)
+                else:
+                    # If a trend was in progress but the signal type changed, start a new one
+                    if trend_in_progress:
+                        trend_in_progress = False
+
+        return connected_indices
+    
+    
+    def smoothed_trendline(self, signal_data, signal_type, connect_count):
+        """
+        Connect consecutive signals of the same type until an opposite signal is discovered and create a trendline.
+
+        Parameters:
+        - signal_data (pd.Series): Signal data (True for signals, False for non-signals).
+        - signal_type (str): Type of signal ('buy' or 'sell').
+        - connect_count (int): Number of consecutive signals to connect.
+
+        Returns:
+        - list: List of indices representing connected signals.
+        """
+        connected_indices = []
+
+        # Find indices where the signal of the given type is True
+        signal_indices = signal_data[signal_data].index
+
+        for i, start_index in enumerate(signal_indices):
+            # Check if there are enough consecutive signals of the same type
+            end_index = start_index + connect_count - 1
+            if end_index in signal_indices[i:]:
+                consecutive_sequence = signal_indices[i:i + connect_count]
+
+                # Check if all consecutive signals are of the same type
+                if all(self.df[signal_type + '_signal'].iloc[x] for x in consecutive_sequence):
+                    # Calculate the average index for the connected signals
+                    average_index = int(np.mean(consecutive_sequence))
+                    connected_indices.append(average_index)
+                else:
+                    break  # Stop connecting if an opposite signal is discovered
+
+        # Plot the trendline
+        self.plot_trendline(signal_type, connected_indices)
+
+        return connected_indices
+
+    def plot_trendline(self, signal_type, connected_indices):
+        """
+        Plot a trendline based on the connected indices.
+
+        Parameters:
+        - signal_type (str): Type of signal ('buy' or 'sell').
+        - connected_indices (list): List of indices representing connected signals.
+
+        Returns:
+        - go.Scatter: Plotly scatter trace for the trendline.
+        """
+        if not connected_indices:
+            return None
+
+        # Extract relevant data for plotting
+        prices = self.df['high'] if signal_type == 'buy' else self.df['low']
+        trendline_values = prices.iloc[connected_indices]
+
+        # Create a Plotly scatter trace for the trendline
+        trendline_trace = go.Scatter(
+            x=connected_indices,
+            y=trendline_values,
+            mode='lines',
+            name=f'{signal_type.capitalize()} Trendline',
+            line=dict(color='green' if signal_type == 'buy' else 'red')
+        )
+
+        # Create a scatter trace for connected signals
+        connected_signals_trace = go.Scatter(
+            x=connected_indices,
+            y=trendline_values,
+            mode='markers',
+            marker=dict(color='black', symbol='x'),
+            name='Connected Signals'
+        )
+
+        return trendline_trace, connected_signals_trace
